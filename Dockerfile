@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y git \
     && git clone https://github.com/ColorfulCookie/coffee-counter /app
 
 # Install Python dependencies
-RUN pip install --no-cache-dir flask flask-cors flask-login gunicorn
+RUN pip install --no-cache-dir flask flask-cors flask-login flask- limiter flask-wtf gunicorn
 
 # Expose the port the Flask app runs on
 EXPOSE 5000

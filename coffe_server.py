@@ -1,13 +1,20 @@
-from flask import Flask, jsonify, request, send_from_directory, Response, render_template, flash, redirect
+from flask import Flask, jsonify, request, send_from_directory, Response, render_template, flash, redirect, url_for, make_response, abort
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from flask_limiter import Limiter
+from flask_wtf.csrf import CSRFProtect
+
 from flask_cors import CORS
 import sqlite3
 import datetime
 import os
+import logging
+
+logging.basicConfig(level=logging.ERROR)
 
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "supersecretkey")  # Set a secret key for session management
 CORS(app)  # Enable CORS for all routes
+csrf = CSRFProtect(app)
 
 # Flask-Login setup
 login_manager = LoginManager()
@@ -27,9 +34,13 @@ DATABASE_PATH = os.path.join(SCRIPT_DIR, DATABASE_NAME)
 
 
 def get_db_connection():
-    conn = sqlite3.connect(DATABASE_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        conn.row_factory = sqlite3.Row
+        return conn
+    except sqlite3.Error as e:
+        print(f"Database connection error: {e}")
+        abort(500, description="Database connection failed")
 
 def setup_database():
     """
@@ -79,6 +90,7 @@ def load_user(user_id):
     return None
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")  # Limit to 5 login attempts per minute
 def login():
     if request.method == 'POST':
         username = request.form.get('username')
@@ -253,7 +265,12 @@ def import_coffee_data():
         for line in file.stream.read().decode('utf-8').splitlines()[1:]:  # Skip header
             id, timestamp = line.split(',')
             if overwrite_duplicates:
-                cursor.execute("INSERT OR REPLACE INTO coffee_entries (id, timestamp) VALUES (?, ?)", (id, timestamp))
+                try:
+                    id, timestamp = line.split(',')
+                    datetime.datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")  # Validate timestamp format
+                    cursor.execute("INSERT OR IGNORE INTO coffee_entries (id, timestamp) VALUES (?, ?)", (id, timestamp))
+                except ValueError:
+                    return jsonify({'error': f'Invalid data format in line: {line}'}), 400
             else:
                 cursor.execute("INSERT OR IGNORE INTO coffee_entries (id, timestamp) VALUES (?, ?)", (id, timestamp))
 
@@ -262,11 +279,11 @@ def import_coffee_data():
 
         return jsonify({'message': 'Import successful'}), 200
     except Exception as e:
-        print(f"Error during import: {e}")
+        logging.error(f"Error during import: {e}")
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     # Ensure database exists
     setup_database()
-    
-    app.run(debug=True, host='localhost', port=5000)
+    debug_mode = os.getenv("FLASK_DEBUG", "false").lower() == "true"
+    app.run(debug=debug_mode, host='localhost', port=5000)
