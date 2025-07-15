@@ -34,7 +34,7 @@ default_credentials = USERNAME == "admin" and PASSWORD == "password"
 
 
 
-DATABASE_NAME = os.getenv("COFFE_DB_NAME","coffee_log.db")
+DATABASE_NAME = os.getenv("COFFEE_DB_NAME","coffee_log.db")
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE_PATH = os.path.join(SCRIPT_DIR, DATABASE_NAME)
 
