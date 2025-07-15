@@ -9,12 +9,18 @@ import datetime
 import os
 import logging
 
-logging.basicConfig(level=logging.ERROR)
+logging.basicConfig(level=logging.DEBUG)
 
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "supersecretkey")  # Set a secret key for session management
 CORS(app)  # Enable CORS for all routes
 csrf = CSRFProtect(app)
+
+# Flask-Limiter setup
+# limiter = Limiter(
+#     key_func=lambda: logging.debug(f"Limiter key: {current_user.id if current_user.is_authenticated else request.remote_addr}") or current_user.id if current_user.is_authenticated else request.remote_addr,
+#     default_limits=["1000 per day", "1000 per hour"]
+# )
 
 # Flask-Login setup
 login_manager = LoginManager()
@@ -90,7 +96,7 @@ def load_user(user_id):
     return None
 
 @app.route('/login', methods=['GET', 'POST'])
-@limiter.limit("5 per minute")  # Limit to 5 login attempts per minute
+# @limiter.limit("5 per minute")  # Limit to 5 login attempts per minute
 def login():
     if request.method == 'POST':
         username = request.form.get('username')
@@ -98,6 +104,7 @@ def login():
         if username == USERNAME and password == PASSWORD:
             user = User(username)
             login_user(user)
+            logging.debug(f"Logged in user: {current_user.id}")  # Debug statement
             flash("Login successful!", "success")
             return redirect(url_for('index'))
         else:
@@ -114,7 +121,7 @@ def logout():
 @app.route('/')
 @login_required
 def index():
-    return send_from_directory('.', 'coffee.html')
+    return render_template('coffee.html')
 
 @app.route('/api/coffees', methods=['GET'])
 @login_required
@@ -141,6 +148,7 @@ def get_coffees():
 @login_required
 def log_coffee():
     try:
+        logging.debug(f"Received CSRF token: {request.headers.get('X-CSRFToken')}")
         conn = get_db_connection()
         cursor = conn.cursor()
         
@@ -162,6 +170,7 @@ def log_coffee():
             'timestamp': formatted_time
         })
     except Exception as e:
+        print(f"Error logging coffee: {e}")  # Debug statement
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/coffees/<int:coffee_id>', methods=['PUT'])
@@ -282,8 +291,12 @@ def import_coffee_data():
         logging.error(f"Error during import: {e}")
         return jsonify({'error': str(e)}), 500
 
+# csrf.exempt(get_coffees)
+# csrf.exempt(log_coffee)
+
 if __name__ == '__main__':
     # Ensure database exists
     setup_database()
     debug_mode = os.getenv("FLASK_DEBUG", "false").lower() == "true"
+    debug_mode = True
     app.run(debug=debug_mode, host='localhost', port=5000)

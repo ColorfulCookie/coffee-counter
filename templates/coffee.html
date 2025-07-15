@@ -242,6 +242,7 @@
 
 		<script>
 			const API_BASE = 'http://localhost:5000/api';
+			const csrfToken = '{{ csrf_token() }}'; // Embed CSRF token from Flask
 
 			// --- State ---
 			let lapCount = 0;
@@ -329,16 +330,25 @@
 
 			async function logCoffee() {
 				try {
+					console.log('Sending POST request to log coffee...');
 					const response = await fetch(`${API_BASE}/coffees`, {
 						method: 'POST',
 						headers: {
 							'Content-Type': 'application/json',
+							'X-CSRFToken': csrfToken,
 						},
 					});
 
 					if (response.ok) {
+						console.log('Coffee logged successfully!');
 						await fetchSessionCounter(); // Update session counter from database
 						await fetchCoffees(); // Refresh data
+					} else {
+						console.error(
+							'Failed to log coffee:',
+							response.status,
+							response.statusText
+						);
 					}
 				} catch (error) {
 					console.error('Error logging coffee:', error);
@@ -353,6 +363,7 @@
 							method: 'POST',
 							headers: {
 								'Content-Type': 'application/json',
+								'X-CSRFToken': csrfToken,
 							},
 						}
 					);
@@ -371,6 +382,7 @@
 						method: 'PUT',
 						headers: {
 							'Content-Type': 'application/json',
+							'X-CSRFToken': csrfToken,
 						},
 						body: JSON.stringify({
 							timestamp: timestamp,
@@ -389,6 +401,9 @@
 				try {
 					const response = await fetch(`${API_BASE}/coffees/${id}`, {
 						method: 'DELETE',
+						headers: {
+							'X-CSRFToken': csrfToken,
+						},
 					});
 
 					if (response.ok) {
@@ -456,6 +471,9 @@
 						`${API_BASE}/import?overwrite=${overwrite}`,
 						{
 							method: 'POST',
+							headers: {
+								'X-CSRFToken': csrfToken,
+							},
 							body: formData,
 						}
 					);
