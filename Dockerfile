@@ -8,6 +8,10 @@ WORKDIR /app
 ENV COFFEE_USERNAME=admin
 ENV COFFEE_PASSWORD=password
 
+# Set an environment variable for the database path
+ENV COFFE_DB_NAME=coffee_log.db
+ENV DATABASE_PATH=/data/coffee_log.db
+
 # Clone the GitHub repository
 RUN apt-get update && apt-get install -y git \
     && git clone https://github.com/ColorfulCookie/coffee-counter /app
