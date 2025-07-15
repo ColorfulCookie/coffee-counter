@@ -298,5 +298,4 @@ if __name__ == '__main__':
     # Ensure database exists
     setup_database()
     debug_mode = os.getenv("FLASK_DEBUG", "false").lower() == "true"
-    debug_mode = True
     app.run(debug=debug_mode, host='localhost', port=5000)

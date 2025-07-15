@@ -458,41 +458,48 @@
 				overwriteModal.classList.add('hidden');
 			});
 
-			// Import function
+			// Import Function
 			async function handleImport(overwrite) {
 				const file = importCsvInput.files[0];
 				if (!file) return;
 
 				const formData = new FormData();
 				formData.append('file', file);
+				formData.append('csrf_token', csrfToken); // Add CSRF token to form data
 
 				try {
 					const response = await fetch(
 						`${API_BASE}/import?overwrite=${overwrite}`,
 						{
 							method: 'POST',
-							headers: {
-								'X-CSRFToken': csrfToken,
-							},
-							body: formData,
+							body: formData, // Remove headers - FormData sets them automatically
 						}
 					);
 
 					if (response.ok) {
-						importStatusEl.textContent = 'Import successful!';
+						const result = await response.json();
+						importStatusEl.textContent =
+							result.message || 'Import successful!';
+						importStatusEl.className = 'text-sm text-green-400';
 						await fetchCoffees(); // Refresh data
+						await fetchSessionCounter(); // Refresh session counter
 					} else {
 						const error = await response.json();
 						importStatusEl.textContent = `Import failed: ${error.error}`;
+						importStatusEl.className = 'text-sm text-red-400';
 					}
 				} catch (error) {
 					console.error('Error importing data:', error);
-					importStatusEl.textContent = 'Import failed.';
+					importStatusEl.textContent = 'Import failed: Network error';
+					importStatusEl.className = 'text-sm text-red-400';
 				}
 
 				// Reset modal state
 				importCsvInput.value = ''; // Clear file input
-				overwriteModal.classList.add('hidden'); // Hide modal
+				setTimeout(() => {
+					importStatusEl.textContent = '';
+					importStatusEl.className = 'text-sm text-gray-400';
+				}, 5000); // Clear status after 5 seconds
 			}
 
 			// --- Event Handlers ---
