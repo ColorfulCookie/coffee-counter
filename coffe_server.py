@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, send_from_directory, render_template, redirect, url_for, flash
+from flask import Flask, jsonify, request, send_from_directory, Response
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask_cors import CORS
 import sqlite3
@@ -105,6 +105,7 @@ def index():
     return send_from_directory('.', 'coffee.html')
 
 @app.route('/api/coffees', methods=['GET'])
+@login_required
 def get_coffees():
     try:
         conn = get_db_connection()
@@ -125,6 +126,7 @@ def get_coffees():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/coffees', methods=['POST'])
+@login_required
 def log_coffee():
     try:
         conn = get_db_connection()
@@ -151,6 +153,7 @@ def log_coffee():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/coffees/<int:coffee_id>', methods=['PUT'])
+@login_required
 def update_coffee(coffee_id):
     try:
         data = request.json
@@ -168,6 +171,7 @@ def update_coffee(coffee_id):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/coffees/<int:coffee_id>', methods=['DELETE'])
+@login_required
 def delete_coffee(coffee_id):
     try:
         conn = get_db_connection()
@@ -181,6 +185,7 @@ def delete_coffee(coffee_id):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/session-counter', methods=['GET'])
+@login_required
 def get_session_counter():
     try:
         conn = get_db_connection()
@@ -194,6 +199,7 @@ def get_session_counter():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/session-counter', methods=['POST'])
+@login_required
 def reset_session_counter():
     try:
         conn = get_db_connection()
@@ -203,6 +209,60 @@ def reset_session_counter():
         conn.close()
         return jsonify({'success': True})
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/export', methods=['GET'])
+@login_required
+def export_coffee_data():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, timestamp FROM coffee_entries ORDER BY timestamp DESC")
+        rows = cursor.fetchall()
+
+        # Generate CSV content
+        csv_content = "id,timestamp\n"
+        for row in rows:
+            csv_content += f"{row['id']},{row['timestamp']}\n"
+
+        conn.close()
+
+        # Serve the CSV content as a file
+        return Response(csv_content, mimetype='text/csv', headers={"Content-Disposition": "attachment;filename=coffee_data.csv"})
+    except Exception as e:
+        print(f"Error during export: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/import', methods=['POST'])
+@login_required
+def import_coffee_data():
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file uploaded'}), 400
+
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
+
+        # Get user preference for handling duplicates
+        overwrite_duplicates = request.args.get('overwrite', 'false').lower() == 'true'
+
+        # Read and process the CSV file
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        for line in file.stream.read().decode('utf-8').splitlines()[1:]:  # Skip header
+            id, timestamp = line.split(',')
+            if overwrite_duplicates:
+                cursor.execute("INSERT OR REPLACE INTO coffee_entries (id, timestamp) VALUES (?, ?)", (id, timestamp))
+            else:
+                cursor.execute("INSERT OR IGNORE INTO coffee_entries (id, timestamp) VALUES (?, ?)", (id, timestamp))
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({'message': 'Import successful'}), 200
+    except Exception as e:
+        print(f"Error during import: {e}")
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':

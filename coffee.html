@@ -173,6 +173,33 @@
 			</div>
 		</div>
 
+		<!-- Overwrite Choice Modal -->
+		<div
+			id="overwrite-modal"
+			class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50"
+		>
+			<div class="bg-gray-800 rounded-lg p-6 w-96">
+				<h3 class="text-xl font-semibold mb-4">Import Options</h3>
+				<p class="text-gray-400 mb-4">
+					Do you want to overwrite duplicate entries or skip them?
+				</p>
+				<div class="flex gap-4">
+					<button
+						id="overwrite-btn"
+						class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded transition-colors"
+					>
+						Overwrite
+					</button>
+					<button
+						id="skip-btn"
+						class="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded transition-colors"
+					>
+						Skip
+					</button>
+				</div>
+			</div>
+		</div>
+
 		<!-- Edit Modal -->
 		<div
 			id="edit-modal"
@@ -239,6 +266,9 @@
 			const cancelEditBtn = document.getElementById('cancel-edit-btn');
 			const deleteEntryBtn = document.getElementById('delete-entry-btn');
 			const exportCsvBtn = document.getElementById('export-csv-btn');
+			const overwriteModal = document.getElementById('overwrite-modal');
+			const overwriteBtn = document.getElementById('overwrite-btn');
+			const skipBtn = document.getElementById('skip-btn');
 			const importCsvInput = document.getElementById('csv-import-input');
 			const importStatusEl = document.getElementById('import-status');
 
@@ -367,6 +397,84 @@
 				} catch (error) {
 					console.error('Error deleting coffee:', error);
 				}
+			}
+
+			// --- Export Function ---
+			exportCsvBtn.addEventListener('click', async () => {
+				try {
+					const response = await fetch(`${API_BASE}/export`);
+					if (response.ok) {
+						const blob = await response.blob();
+						const url = window.URL.createObjectURL(blob);
+						const a = document.createElement('a');
+						a.style.display = 'none';
+						a.href = url;
+						a.download = 'coffee_data.csv';
+						document.body.appendChild(a);
+						a.click();
+						window.URL.revokeObjectURL(url);
+					} else {
+						console.error(
+							'Error exporting data:',
+							response.statusText
+						);
+					}
+				} catch (error) {
+					console.error('Error exporting data:', error);
+				}
+			});
+
+			// --- Import Function ---
+			// Show the modal when a file is selected
+			importCsvInput.addEventListener('change', () => {
+				if (!importCsvInput.files[0]) return;
+				overwriteModal.classList.remove('hidden');
+			});
+
+			// Handle overwrite choice
+			overwriteBtn.addEventListener('click', async () => {
+				await handleImport(true); // Overwrite duplicates
+				overwriteModal.classList.add('hidden');
+			});
+
+			// Handle skip choice
+			skipBtn.addEventListener('click', async () => {
+				await handleImport(false); // Skip duplicates
+				overwriteModal.classList.add('hidden');
+			});
+
+			// Import function
+			async function handleImport(overwrite) {
+				const file = importCsvInput.files[0];
+				if (!file) return;
+
+				const formData = new FormData();
+				formData.append('file', file);
+
+				try {
+					const response = await fetch(
+						`${API_BASE}/import?overwrite=${overwrite}`,
+						{
+							method: 'POST',
+							body: formData,
+						}
+					);
+
+					if (response.ok) {
+						importStatusEl.textContent = 'Import successful!';
+						await fetchCoffees(); // Refresh data
+					} else {
+						const error = await response.json();
+						importStatusEl.textContent = `Import failed: ${error.error}`;
+					}
+				} catch (error) {
+					console.error('Error importing data:', error);
+					importStatusEl.textContent = 'Import failed.';
+				}
+
+				// Reset modal state
+				importCsvInput.value = ''; // Clear file input
+				overwriteModal.classList.add('hidden'); // Hide modal
 			}
 
 			// --- Event Handlers ---
