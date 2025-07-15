@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Coffee Tracker</title>
+		<script src="https://cdn.tailwindcss.com"></script>
+		<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+		<style>
+			.heatmap-cell {
+				width: 12px;
+				height: 12px;
+				background-color: #1f2937;
+				border-radius: 2px;
+				border: 1px solid #374151;
+			}
+			#heatmap-tooltip {
+				position: absolute;
+				background-color: #111827;
+				color: white;
+				padding: 8px;
+				border-radius: 4px;
+				font-size: 12px;
+				pointer-events: none;
+				opacity: 0;
+				transition: opacity 0.2s;
+				z-index: 1000;
+			}
+		</style>
+	</head>
+	<body class="bg-gray-900 text-white min-h-screen">
+		<div class="container mx-auto px-4 py-8">
+			<!-- Header -->
+			<div class="text-center mb-8">
+				<h1 class="text-4xl font-bold mb-2">☕ Coffee Tracker</h1>
+				<div id="clock" class="text-2xl font-mono mb-1"></div>
+				<div id="date" class="text-lg text-gray-400"></div>
+			</div>
+
+			<!-- Stats Cards -->
+			<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+				<div class="bg-gray-800 rounded-lg p-6 text-center">
+					<div
+						class="text-3xl font-bold text-blue-400"
+						id="total-coffees"
+					>
+						0
+					</div>
+					<div class="text-gray-400">Total Coffees</div>
+				</div>
+				<div class="bg-gray-800 rounded-lg p-6 text-center">
+					<div
+						class="text-3xl font-bold text-green-400"
+						id="lap-counter"
+					>
+						0
+					</div>
+					<div class="text-gray-400">Session Counter</div>
+				</div>
+				<div class="bg-gray-800 rounded-lg p-6 text-center">
+					<div class="text-sm text-gray-400">User ID</div>
+					<div class="text-lg font-mono" id="user-id">loading...</div>
+				</div>
+			</div>
+
+			<!-- Action Buttons -->
+			<div class="flex justify-center gap-4 mb-8">
+				<button
+					id="log-coffee-btn"
+					class="bg-blue-600 hover:bg-blue-700 px-8 py-3 rounded-lg font-semibold transition-colors"
+				>
+					☕ Log Coffee
+				</button>
+				<button
+					id="lap-reset-btn"
+					class="bg-red-600 hover:bg-red-700 px-6 py-3 rounded-lg font-semibold transition-colors"
+				>
+					🔄 Reset Session
+				</button>
+			</div>
+
+			<!-- Charts -->
+			<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+				<div class="bg-gray-800 rounded-lg p-6">
+					<h3 class="text-xl font-semibold mb-4">
+						Today's Coffee Timeline
+					</h3>
+					<div class="h-64">
+						<canvas id="coffee-chart"></canvas>
+					</div>
+				</div>
+				<div class="bg-gray-800 rounded-lg p-6">
+					<h3 class="text-xl font-semibold mb-4">
+						This Month's Coffee
+					</h3>
+					<div class="h-64">
+						<canvas id="monthly-coffee-chart"></canvas>
+					</div>
+				</div>
+			</div>
+
+			<!-- Heatmap -->
+			<div class="bg-gray-800 rounded-lg p-6 mb-8">
+				<h3 class="text-xl font-semibold mb-4">
+					Weekly Heatmap (8 AM - 8 PM)
+				</h3>
+				<div class="relative">
+					<div id="heatmap" class="flex justify-center gap-2"></div>
+					<div id="heatmap-tooltip"></div>
+				</div>
+			</div>
+
+			<!-- Log History -->
+			<div class="bg-gray-800 rounded-lg p-6 mb-8">
+				<h3 class="text-xl font-semibold mb-4">Recent Coffee Log</h3>
+				<div class="overflow-x-auto">
+					<table class="w-full text-sm">
+						<thead>
+							<tr class="border-b border-gray-700">
+								<th class="text-left py-3 px-4 text-gray-400">
+									Time
+								</th>
+								<th class="text-left py-3 px-4 text-gray-400">
+									Date
+								</th>
+							</tr>
+						</thead>
+						<tbody id="log-table-body">
+							<!-- Rows will be populated by JavaScript -->
+						</tbody>
+					</table>
+				</div>
+			</div>
+
+			<!-- Import/Export -->
+			<div class="bg-gray-800 rounded-lg p-6">
+				<h3 class="text-xl font-semibold mb-4">Data Management</h3>
+				<div class="flex gap-4 mb-4">
+					<button
+						id="export-csv-btn"
+						class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded transition-colors"
+					>
+						📊 Export CSV
+					</button>
+					<label
+						class="bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded transition-colors cursor-pointer"
+					>
+						📁 Import CSV
+						<input
+							type="file"
+							id="csv-import-input"
+							accept=".csv"
+							class="hidden"
+						/>
+					</label>
+				</div>
+				<div id="import-status" class="text-sm text-gray-400"></div>
+			</div>
+		</div>
+
+		<!-- Edit Modal -->
+		<div
+			id="edit-modal"
+			class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50"
+		>
+			<div class="bg-gray-800 rounded-lg p-6 w-96">
+				<h3 class="text-xl font-semibold mb-4">Edit Coffee Entry</h3>
+				<div class="mb-4">
+					<label class="block text-sm font-medium mb-2"
+						>Timestamp</label
+					>
+					<input
+						type="datetime-local"
+						id="edit-timestamp"
+						class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2"
+					/>
+				</div>
+				<div class="flex gap-3">
+					<button
+						id="save-edit-btn"
+						class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded transition-colors"
+					>
+						Save
+					</button>
+					<button
+						id="cancel-edit-btn"
+						class="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded transition-colors"
+					>
+						Cancel
+					</button>
+					<button
+						id="delete-entry-btn"
+						class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded transition-colors ml-auto"
+					>
+						Delete
+					</button>
+				</div>
+			</div>
+		</div>
+
+		<script>
+			const API_BASE = 'http://localhost:5000/api';
+
+			// --- State ---
+			let lapCount = 0;
+			let coffeeChart;
+			let monthlyCoffeeChart;
+			let allCoffeeData = [];
+			let currentEditingDocId = null;
+
+			// --- UI Elements ---
+			const clockEl = document.getElementById('clock');
+			const dateEl = document.getElementById('date');
+			const totalCoffeesEl = document.getElementById('total-coffees');
+			const logCoffeeBtn = document.getElementById('log-coffee-btn');
+			const lapCounterEl = document.getElementById('lap-counter');
+			const lapResetBtn = document.getElementById('lap-reset-btn');
+			const userIdEl = document.getElementById('user-id');
+			const logTableBody = document.getElementById('log-table-body');
+			const editModal = document.getElementById('edit-modal');
+			const editTimestampInput =
+				document.getElementById('edit-timestamp');
+			const saveEditBtn = document.getElementById('save-edit-btn');
+			const cancelEditBtn = document.getElementById('cancel-edit-btn');
+			const deleteEntryBtn = document.getElementById('delete-entry-btn');
+			const exportCsvBtn = document.getElementById('export-csv-btn');
+			const importCsvInput = document.getElementById('csv-import-input');
+			const importStatusEl = document.getElementById('import-status');
+
+			// --- Clock Function ---
+			function updateClock() {
+				const now = new Date();
+				clockEl.textContent = now.toLocaleTimeString([], {
+					hour: '2-digit',
+					minute: '2-digit',
+					second: '2-digit',
+				});
+				dateEl.textContent = now.toLocaleDateString([], {
+					weekday: 'long',
+					year: 'numeric',
+					month: 'long',
+					day: 'numeric',
+				});
+			}
+			setInterval(updateClock, 1000);
+			updateClock();
+
+			// Set user ID to "local"
+			userIdEl.textContent = 'local-sqlite';
+
+			// --- API Functions ---
+			async function fetchCoffees() {
+				try {
+					const response = await fetch(`${API_BASE}/coffees`);
+					const coffees = await response.json();
+
+					allCoffeeData = coffees
+						.map((coffee) => ({
+							id: coffee.id,
+							timestamp: new Date(coffee.timestamp),
+						}))
+						.sort((a, b) => b.timestamp - a.timestamp);
+
+					totalCoffeesEl.textContent = allCoffeeData.length;
+					updateDailyChart();
+					updateMonthlyChart();
+					updateHeatmap();
+					updateLogTable();
+				} catch (error) {
+					console.error('Error fetching coffees:', error);
+				}
+			}
+
+			async function fetchSessionCounter() {
+				try {
+					const response = await fetch(`${API_BASE}/session-counter`);
+					const result = await response.json();
+					lapCount = result.count;
+					lapCounterEl.textContent = lapCount;
+				} catch (error) {
+					console.error('Error fetching session counter:', error);
+				}
+			}
+
+			async function logCoffee() {
+				try {
+					const response = await fetch(`${API_BASE}/coffees`, {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+						},
+					});
+
+					if (response.ok) {
+						await fetchSessionCounter(); // Update session counter from database
+						await fetchCoffees(); // Refresh data
+					}
+				} catch (error) {
+					console.error('Error logging coffee:', error);
+				}
+			}
+
+			async function resetSessionCounter() {
+				try {
+					const response = await fetch(
+						`${API_BASE}/session-counter`,
+						{
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json',
+							},
+						}
+					);
+
+					if (response.ok) {
+						await fetchSessionCounter(); // Update display
+					}
+				} catch (error) {
+					console.error('Error resetting session counter:', error);
+				}
+			}
+
+			async function updateCoffee(id, timestamp) {
+				try {
+					const response = await fetch(`${API_BASE}/coffees/${id}`, {
+						method: 'PUT',
+						headers: {
+							'Content-Type': 'application/json',
+						},
+						body: JSON.stringify({
+							timestamp: timestamp,
+						}),
+					});
+
+					if (response.ok) {
+						await fetchCoffees(); // Refresh data
+					}
+				} catch (error) {
+					console.error('Error updating coffee:', error);
+				}
+			}
+
+			async function deleteCoffee(id) {
+				try {
+					const response = await fetch(`${API_BASE}/coffees/${id}`, {
+						method: 'DELETE',
+					});
+
+					if (response.ok) {
+						await fetchCoffees(); // Refresh data
+					}
+				} catch (error) {
+					console.error('Error deleting coffee:', error);
+				}
+			}
+
+			// --- Event Handlers ---
+			logCoffeeBtn.addEventListener('click', logCoffee);
+			lapResetBtn.addEventListener('click', resetSessionCounter);
+
+			// --- Log Table Function ---
+			function updateLogTable() {
+				logTableBody.innerHTML = '';
+
+				// Show the 20 most recent entries
+				const recentEntries = allCoffeeData.slice(0, 20);
+
+				recentEntries.forEach((coffee) => {
+					const row = document.createElement('tr');
+					row.className =
+						'bg-gray-800 border-b border-gray-700 hover:bg-gray-700 cursor-pointer';
+
+					const timeCell = document.createElement('td');
+					timeCell.className = 'px-4 py-3 text-sm text-gray-300';
+					timeCell.textContent = coffee.timestamp.toLocaleTimeString(
+						[],
+						{
+							hour: '2-digit',
+							minute: '2-digit',
+							second: '2-digit',
+						}
+					);
+
+					const dateCell = document.createElement('td');
+					dateCell.className = 'px-4 py-3 text-sm text-gray-300';
+					dateCell.textContent =
+						coffee.timestamp.toLocaleDateString();
+
+					row.appendChild(timeCell);
+					row.appendChild(dateCell);
+
+					// Add click handler to open edit modal
+					row.addEventListener('click', () => {
+						openEditModal(
+							coffee.id,
+							coffee.timestamp.toISOString()
+						);
+					});
+
+					logTableBody.appendChild(row);
+				});
+			}
+
+			// --- Modal Logic ---
+			function openEditModal(docId, isoTimestamp) {
+				currentEditingDocId = docId;
+				const date = new Date(isoTimestamp);
+				const timezoneOffset = date.getTimezoneOffset() * 60000;
+				const localDate = new Date(date.getTime() - timezoneOffset);
+				editTimestampInput.value = localDate.toISOString().slice(0, 16);
+				editModal.classList.remove('hidden');
+			}
+
+			function closeEditModal() {
+				currentEditingDocId = null;
+				editModal.classList.add('hidden');
+			}
+
+			cancelEditBtn.addEventListener('click', closeEditModal);
+
+			saveEditBtn.addEventListener('click', async () => {
+				if (!currentEditingDocId) return;
+				const newDate = new Date(editTimestampInput.value);
+				const newTimestamp = newDate
+					.toISOString()
+					.slice(0, 19)
+					.replace('T', ' ');
+				await updateCoffee(currentEditingDocId, newTimestamp);
+				closeEditModal();
+			});
+
+			deleteEntryBtn.addEventListener('click', async () => {
+				if (!currentEditingDocId) return;
+				await deleteCoffee(currentEditingDocId);
+				closeEditModal();
+			});
+
+			// --- Charting Functions ---
+			function createChartConfig(labels, data) {
+				return {
+					type: 'bar',
+					data: {
+						labels: labels,
+						datasets: [
+							{
+								label: 'Coffees',
+								data: data,
+								backgroundColor: 'rgba(79, 70, 229, 0.8)',
+								borderColor: 'rgba(99, 102, 241, 1)',
+								borderWidth: 2,
+								borderRadius: 4,
+							},
+						],
+					},
+					options: {
+						responsive: true,
+						maintainAspectRatio: false,
+						scales: {
+							y: {
+								beginAtZero: true,
+								ticks: { color: '#9ca3af', stepSize: 1 },
+								grid: { color: '#374151' },
+							},
+							x: {
+								ticks: {
+									color: '#9ca3af',
+									maxRotation: 0,
+									minRotation: 0,
+									autoSkip: true,
+									maxTicksLimit: 12,
+								},
+								grid: { display: false },
+							},
+						},
+						plugins: {
+							legend: { display: false },
+							tooltip: {
+								backgroundColor: '#111827',
+								titleFont: { size: 14 },
+								bodyFont: { size: 12 },
+								padding: 10,
+								cornerRadius: 4,
+							},
+						},
+					},
+				};
+			}
+
+			function initializeDailyChart() {
+				const ctx = document
+					.getElementById('coffee-chart')
+					.getContext('2d');
+				coffeeChart = new Chart(
+					ctx,
+					createChartConfig(
+						Array.from({ length: 24 }, (_, i) => `${i}:00`),
+						[]
+					)
+				);
+			}
+
+			function initializeMonthlyChart() {
+				const ctx = document
+					.getElementById('monthly-coffee-chart')
+					.getContext('2d');
+				const now = new Date();
+				const daysInMonth = new Date(
+					now.getFullYear(),
+					now.getMonth() + 1,
+					0
+				).getDate();
+				monthlyCoffeeChart = new Chart(
+					ctx,
+					createChartConfig(
+						Array.from({ length: daysInMonth }, (_, i) => i + 1),
+						[]
+					)
+				);
+			}
+
+			function updateDailyChart() {
+				if (!coffeeChart || !allCoffeeData) return;
+				const today = new Date();
+				const coffeesToday = allCoffeeData.filter(
+					(c) => c.timestamp.toDateString() === today.toDateString()
+				);
+				const hourlyCounts = new Array(24).fill(0);
+				coffeesToday.forEach(
+					(c) => hourlyCounts[c.timestamp.getHours()]++
+				);
+				coffeeChart.data.datasets[0].data = hourlyCounts;
+				coffeeChart.update();
+			}
+
+			function updateMonthlyChart() {
+				if (!monthlyCoffeeChart || !allCoffeeData) return;
+				const now = new Date();
+				const currentMonth = now.getMonth();
+				const currentYear = now.getFullYear();
+				const daysInMonth = new Date(
+					currentYear,
+					currentMonth + 1,
+					0
+				).getDate();
+
+				const coffeesThisMonth = allCoffeeData.filter(
+					(c) =>
+						c.timestamp.getMonth() === currentMonth &&
+						c.timestamp.getFullYear() === currentYear
+				);
+				const dailyCounts = new Array(daysInMonth).fill(0);
+				coffeesThisMonth.forEach(
+					(c) => dailyCounts[c.timestamp.getDate() - 1]++
+				);
+
+				monthlyCoffeeChart.data.labels = Array.from(
+					{ length: daysInMonth },
+					(_, i) => i + 1
+				);
+				monthlyCoffeeChart.data.datasets[0].data = dailyCounts;
+				monthlyCoffeeChart.update();
+			}
+
+			function updateHeatmap() {
+				const heatmapEl = document.getElementById('heatmap');
+				const tooltipEl = document.getElementById('heatmap-tooltip');
+				heatmapEl.innerHTML = '';
+				const dayLabels = [
+					'Mon',
+					'Tue',
+					'Wed',
+					'Thu',
+					'Fri',
+					'Sat',
+					'Sun',
+				];
+				const data = Array(7)
+					.fill(0)
+					.map(() => Array(24).fill(0));
+
+				const oneWeekAgo = new Date();
+				oneWeekAgo.setDate(oneWeekAgo.getDate() - 6);
+				oneWeekAgo.setHours(0, 0, 0, 0);
+
+				allCoffeeData
+					.filter((c) => c.timestamp >= oneWeekAgo)
+					.forEach((coffee) => {
+						const day = (coffee.timestamp.getDay() + 6) % 7;
+						const hour = coffee.timestamp.getHours();
+						data[day][hour]++;
+					});
+				const maxCount = Math.max(1, ...data.flat());
+
+				for (let day = 0; day < 7; day++) {
+					const dayCol = document.createElement('div');
+					dayCol.className = 'flex flex-col items-center space-y-1';
+					const dayLabelEl = document.createElement('div');
+					dayLabelEl.textContent = dayLabels[day];
+					dayLabelEl.className = 'text-xs text-gray-400 mb-1';
+					dayCol.appendChild(dayLabelEl);
+
+					for (let hour = 8; hour < 20; hour++) {
+						const cell = document.createElement('div');
+						cell.className = 'heatmap-cell';
+						const count = data[day][hour];
+						if (count > 0)
+							cell.style.backgroundColor = `rgba(79, 70, 229, ${Math.max(
+								0.2,
+								count / maxCount
+							)})`;
+
+						cell.onmouseover = (e) => {
+							tooltipEl.textContent = `${count} coffee${
+								count !== 1 ? 's' : ''
+							} on ${dayLabels[day]} at ${hour}:00`;
+							tooltipEl.style.opacity = '1';
+							const rect = e.target.getBoundingClientRect();
+							const containerRect =
+								heatmapEl.parentElement.getBoundingClientRect();
+							tooltipEl.style.left = `${
+								rect.left -
+								containerRect.left +
+								rect.width / 2 -
+								tooltipEl.offsetWidth / 2
+							}px`;
+							tooltipEl.style.top = `${
+								rect.top -
+								containerRect.top -
+								tooltipEl.offsetHeight -
+								5
+							}px`;
+						};
+						cell.onmouseout = () => {
+							tooltipEl.style.opacity = '0';
+						};
+						dayCol.appendChild(cell);
+					}
+					heatmapEl.appendChild(dayCol);
+				}
+			}
+
+			// --- Initial Load ---
+			window.onload = async () => {
+				initializeDailyChart();
+				initializeMonthlyChart();
+				await fetchSessionCounter(); // Load session counter from database
+				await fetchCoffees();
+			};
+		</script>
+	</body>
+</html>
