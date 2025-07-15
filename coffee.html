@@ -35,6 +35,15 @@
 				<h1 class="text-4xl font-bold mb-2">☕ Coffee Tracker</h1>
 				<div id="clock" class="text-2xl font-mono mb-1"></div>
 				<div id="date" class="text-lg text-gray-400"></div>
+				<!-- Logout Button -->
+				<div class="mt-4">
+					<a
+						href="/logout"
+						class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-semibold transition-colors"
+					>
+						Logout
+					</a>
+				</div>
 			</div>
 
 			<!-- Stats Cards -->
@@ -81,32 +90,38 @@
 
 			<!-- Charts -->
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-				<div class="bg-gray-800 rounded-lg p-6">
-					<h3 class="text-xl font-semibold mb-4">
-						Today's Coffee Timeline
-					</h3>
-					<div class="h-64">
-						<canvas id="coffee-chart"></canvas>
+				<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+					<!-- Today's Coffee Timeline -->
+					<div class="bg-gray-800 rounded-lg p-6 h-80">
+						<h3 class="text-xl font-semibold mb-4">
+							Today's Coffee Timeline
+						</h3>
+						<div class="relative">
+							<canvas id="coffee-chart"></canvas>
+						</div>
+					</div>
+
+					<!-- Weekly Heatmap -->
+					<div class="bg-gray-800 rounded-lg p-6 h-80">
+						<h3 class="text-xl font-semibold mb-4">
+							Weekly Heatmap (8 AM - 8 PM)
+						</h3>
+						<div class="relative">
+							<div
+								id="heatmap"
+								class="flex justify-center gap-2"
+							></div>
+							<div id="heatmap-tooltip"></div>
+						</div>
 					</div>
 				</div>
-				<div class="bg-gray-800 rounded-lg p-6">
+				<div class="bg-gray-800 rounded-lg p-6 h-80">
 					<h3 class="text-xl font-semibold mb-4">
 						This Month's Coffee
 					</h3>
-					<div class="h-64">
+					<div class="relative">
 						<canvas id="monthly-coffee-chart"></canvas>
 					</div>
-				</div>
-			</div>
-
-			<!-- Heatmap -->
-			<div class="bg-gray-800 rounded-lg p-6 mb-8">
-				<h3 class="text-xl font-semibold mb-4">
-					Weekly Heatmap (8 AM - 8 PM)
-				</h3>
-				<div class="relative">
-					<div id="heatmap" class="flex justify-center gap-2"></div>
-					<div id="heatmap-tooltip"></div>
 				</div>
 			</div>
 

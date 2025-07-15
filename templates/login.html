@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Login</title>
+		<script src="https://cdn.tailwindcss.com"></script>
+	</head>
+	<body
+		class="bg-gray-900 text-white min-h-screen flex items-center justify-center"
+	>
+		<div class="container mx-auto px-4 py-8">
+			<div class="bg-gray-800 rounded-lg p-6 w-full max-w-md mx-auto">
+				<h1 class="text-4xl font-bold text-center mb-6">
+					☕ Coffee Tracker Login
+				</h1>
+				{% with messages = get_flashed_messages(with_categories=true) %}
+				{% if messages %}
+				<div class="mb-4">
+					{% for category, message in messages %}
+					<div
+						class="text-{{ 'red-500' if category == 'danger' else 'green-500' }} mb-2"
+					>
+						{{ message }}
+					</div>
+					{% endfor %}
+				</div>
+				{% endif %} {% endwith %} {% if default_credentials %}
+				<div class="text-yellow-500 mb-4">
+					WARNING: Default credentials are being used. Please set
+					custom credentials by passing
+					<code>COFFEE_USERNAME</code> and
+					<code>COFFEE_PASSWORD</code> as environment variables when
+					running the Docker container.
+				</div>
+				{% endif %}
+				<form method="POST">
+					<div class="mb-4">
+						<label class="block text-sm font-medium mb-2"
+							>Username</label
+						>
+						<input
+							type="text"
+							name="username"
+							class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2"
+						/>
+					</div>
+					<div class="mb-4">
+						<label class="block text-sm font-medium mb-2"
+							>Password</label
+						>
+						<input
+							type="password"
+							name="password"
+							class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2"
+						/>
+					</div>
+					<button
+						type="submit"
+						class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-semibold transition-colors w-full"
+					>
+						Login
+					</button>
+				</form>
+			</div>
+		</div>
+	</body>
+</html>

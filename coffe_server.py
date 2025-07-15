@@ -1,16 +1,30 @@
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, render_template, redirect, url_for, flash
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from flask_cors import CORS
 import sqlite3
 import datetime
 import os
-from flask_cors import CORS
 
 app = Flask(__name__)
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "supersecretkey")  # Set a secret key for session management
 CORS(app)  # Enable CORS for all routes
 
-# Use the same database configuration as coffee.py
-DATABASE_NAME = "coffee_log.db"
+# Flask-Login setup
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+USERNAME = os.getenv("COFFEE_USERNAME", "admin")
+PASSWORD = os.getenv("COFFEE_PASSWORD", "password")
+
+# Warn if default credentials are being used
+default_credentials = USERNAME == "admin" and PASSWORD == "password"
+
+
+
+DATABASE_NAME = os.getenv("COFFE_DB_NAME","coffee_log.db")
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE_PATH = os.path.join(SCRIPT_DIR, DATABASE_NAME)
+
 
 def get_db_connection():
     conn = sqlite3.connect(DATABASE_PATH)
@@ -53,9 +67,42 @@ def setup_database():
         if conn:
             conn.close()
 
+# User class for Flask-Login
+class User(UserMixin):
+    def __init__(self, id):
+        self.id = id
+
+@login_manager.user_loader
+def load_user(user_id):
+    if user_id == USERNAME:
+        return User(user_id)
+    return None
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        if username == USERNAME and password == PASSWORD:
+            user = User(username)
+            login_user(user)
+            flash("Login successful!", "success")
+            return redirect(url_for('index'))
+        else:
+            flash("Invalid credentials. Please try again.", "danger")
+    return render_template('login.html', default_credentials=default_credentials)
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash("You have been logged out.", "info")
+    return redirect(url_for('login'))
+
 @app.route('/')
+@login_required
 def index():
-    return send_from_directory('.', 'coffee.htm')
+    return send_from_directory('.', 'coffee.html')
 
 @app.route('/api/coffees', methods=['GET'])
 def get_coffees():
