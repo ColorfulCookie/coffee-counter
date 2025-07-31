@@ -10,6 +10,3 @@ gunicorn==21.2.0
 
 # Database (included in Python standard library)
 # sqlite3
-
-# Note: calc.py requires gradio but is unrelated to coffee counting functionality
-# gradio==4.7.1
