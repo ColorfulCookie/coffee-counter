@@ -3,11 +3,8 @@ import datetime
 import os
 
 # --- Configuration ---
-DATABASE_NAME = "coffee_log.db"
-# Get the directory where the script is located
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-# Set the database path to be in the same directory as the script
-DATABASE_PATH = os.path.join(SCRIPT_DIR, DATABASE_NAME)
+DATABASE_NAME = os.getenv("COFFEE_DB_NAME", "coffee_log.db")
+DATABASE_PATH = os.getenv("DATABASE_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), DATABASE_NAME))
 
 def setup_database():
     """
@@ -32,6 +29,7 @@ def setup_database():
         conn.commit()
     except sqlite3.Error as e:
         print(f"Database error during setup: {e}")
+        raise
     finally:
         if conn:
             conn.close()

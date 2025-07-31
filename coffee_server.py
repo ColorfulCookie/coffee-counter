@@ -12,15 +12,25 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 app = Flask(__name__)
-app.secret_key = os.getenv("FLASK_SECRET_KEY", "supersecretkey")  # Set a secret key for session management
+
+# Security Configuration
+secret_key = os.getenv("FLASK_SECRET_KEY")
+if not secret_key:
+    import secrets
+    secret_key = secrets.token_hex(32)
+    logging.warning("FLASK_SECRET_KEY not set. Generated a random key for this session. "
+                   "Set FLASK_SECRET_KEY environment variable for production.")
+
+app.secret_key = secret_key
 CORS(app)  # Enable CORS for all routes
 csrf = CSRFProtect(app)
 
 # Flask-Limiter setup
-# limiter = Limiter(
-#     key_func=lambda: logging.debug(f"Limiter key: {current_user.id if current_user.is_authenticated else request.remote_addr}") or current_user.id if current_user.is_authenticated else request.remote_addr,
-#     default_limits=["1000 per day", "1000 per hour"]
-# )
+limiter = Limiter(
+    app=app,
+    key_func=lambda: current_user.id if current_user.is_authenticated else request.remote_addr,
+    default_limits=["1000 per day", "100 per hour"]
+)
 
 # Flask-Login setup
 login_manager = LoginManager()
@@ -31,21 +41,26 @@ PASSWORD = os.getenv("COFFEE_PASSWORD", "password")
 
 # Warn if default credentials are being used
 default_credentials = USERNAME == "admin" and PASSWORD == "password"
+if default_credentials:
+    logging.warning("⚠️  SECURITY WARNING: Default credentials (admin/password) are being used! "
+                   "Set COFFEE_USERNAME and COFFEE_PASSWORD environment variables for production.")
+    print("⚠️  SECURITY WARNING: Default credentials (admin/password) are being used!")
+    print("   Set COFFEE_USERNAME and COFFEE_PASSWORD environment variables for production.")
 
 
 
-DATABASE_NAME = os.getenv("COFFEE_DB_NAME","coffee_log.db")
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DATABASE_PATH = os.path.join(SCRIPT_DIR, DATABASE_NAME)
+DATABASE_NAME = os.getenv("COFFEE_DB_NAME", "coffee_log.db")
+DATABASE_PATH = os.getenv("DATABASE_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), DATABASE_NAME))
 
 
 def get_db_connection():
+    """Get a database connection with proper error handling."""
     try:
         conn = sqlite3.connect(DATABASE_PATH)
         conn.row_factory = sqlite3.Row
         return conn
     except sqlite3.Error as e:
-        print(f"Database connection error: {e}")
+        logging.error(f"Database connection error: {e}")
         abort(500, description="Database connection failed")
 
 def setup_database():
@@ -79,7 +94,8 @@ def setup_database():
         
         conn.commit()
     except sqlite3.Error as e:
-        print(f"Database error during setup: {e}")
+        logging.error(f"Database error during setup: {e}")
+        raise
     finally:
         if conn:
             conn.close()
@@ -96,7 +112,7 @@ def load_user(user_id):
     return None
 
 @app.route('/login', methods=['GET', 'POST'])
-# @limiter.limit("5 per minute")  # Limit to 5 login attempts per minute
+@limiter.limit("5 per minute")  # Limit to 5 login attempts per minute
 def login():
     if request.method == 'POST':
         username = request.form.get('username')
@@ -290,9 +306,6 @@ def import_coffee_data():
     except Exception as e:
         logging.error(f"Error during import: {e}")
         return jsonify({'error': str(e)}), 500
-
-# csrf.exempt(get_coffees)
-# csrf.exempt(log_coffee)
 
 if __name__ == '__main__':
     # Ensure database exists
