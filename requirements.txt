@@ -1,0 +1,12 @@
+# Core Flask dependencies
+Flask==3.0.0
+Flask-CORS==4.0.0
+Flask-Login==0.6.3
+Flask-Limiter==3.5.0
+Flask-WTF==1.2.1
+
+# Production server
+gunicorn==21.2.0
+
+# Database (included in Python standard library)
+# sqlite3
